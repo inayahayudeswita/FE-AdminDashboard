@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Edit3, Trash2, Plus, Save, X } from 'lucide-react';
 import Header from '../layout/Header';
 
-const API_BASE_URL = 'https://backendd-fundunity.vercel.app/v1/content/transaction'; // ganti sesuai backend-mu
+const API_BASE_URL = 'https://backendd-fundunity.onrender.com/api/v1/content/transaction';
 
 const statusOptions = ['pending', 'berhasil', 'gagal'] as const;
 type StatusType = typeof statusOptions[number];
