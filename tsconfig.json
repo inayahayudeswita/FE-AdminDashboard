@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",  // Tentukan target ES versi yang kamu inginkan
+    "lib": ["ES2020", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "jsx": "react-jsx",  // Untuk React 17 dan lebih baru
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true
+  },
+  "include": ["src/**/*"],  // Pastikan folder src dimasukkan agar TypeScript tahu file apa yang harus diproses
+}
