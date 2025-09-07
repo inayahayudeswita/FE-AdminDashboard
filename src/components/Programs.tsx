@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Search, Edit3, Trash2, Plus, BookOpen, Users, Calendar,
-} from 'lucide-react';
+import { Search, Edit3, Trash2, Plus, BookOpen } from 'lucide-react';
 import Header from '../layout/Header';
 
 const API_BASE_URL = 'https://backendd-fundunity.vercel.app/v1/content/program';
@@ -61,9 +59,15 @@ const Programs = () => {
 
     try {
       const token = localStorage.getItem('token');
+      if (!token) {
+        alert('Token tidak ditemukan!');
+        return;
+      }
+
       const formData = new FormData();
       formData.append('title', currentItem.title);
       formData.append('description', currentItem.description);
+
       if (currentItem.imageFile) {
         formData.append('image', currentItem.imageFile);
       }
@@ -76,7 +80,12 @@ const Programs = () => {
         body: formData,
       });
 
-      if (!res.ok) throw new Error('Failed to update program');
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Failed to update program');
+      }
+
+      console.log('Program berhasil diperbarui:', data);
       await fetchPrograms();
       handleModalClose();
     } catch (error) {
@@ -84,15 +93,83 @@ const Programs = () => {
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    if (currentItem) {
-      setCurrentItem({ ...currentItem, [e.target.name]: e.target.value });
-    }
+  const handleAddNew = () => {
+    setIsAddModalOpen(true);
   };
 
-  const handleEditImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0] && currentItem) {
-      setCurrentItem({ ...currentItem, imageFile: e.target.files[0] });
+  const handleAddSave = async () => {
+    try {
+      // Validasi input
+      if (!newItem.title || !newItem.description) {
+        alert('Judul dan deskripsi wajib diisi!');
+        return;
+      }
+
+      const token = localStorage.getItem('token');
+      if (!token) {
+        alert('Token tidak ditemukan!');
+        return;
+      }
+
+      console.log('Data yang akan dikirim:', {
+        title: newItem.title,
+        description: newItem.description,
+        imageFile: newItem.imageFile ? newItem.imageFile.name : 'No file'
+      });
+
+      const formData = new FormData();
+      formData.append('title', newItem.title);
+      formData.append('description', newItem.description);
+
+      // Cek apakah ada file gambar yang dipilih dan append ke formData
+      if (newItem.imageFile) {
+        formData.append('image', newItem.imageFile);
+        console.log('File gambar ditambahkan:', newItem.imageFile.name);
+      }
+
+      // Debug: Log semua data di FormData
+      console.log('FormData contents:');
+formData.forEach((value, key) => {
+  console.log(key, value);
+});
+
+      console.log('Mengirim request ke:', API_BASE_URL);
+      console.log('Token:', token ? 'Token tersedia' : 'Token tidak ada');
+
+      const res = await fetch(API_BASE_URL, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      console.log('Response status:', res.status);
+      console.log('Response headers:', res.headers);
+
+      const data = await res.json();
+      console.log('Response data:', data);
+
+      if (!res.ok) {
+        console.error('Server error response:', data);
+        throw new Error(data.message || data.error || `Server error: ${res.status}`);
+      }
+
+      console.log('Program berhasil ditambahkan:', data);
+      await fetchPrograms();
+      setNewItem({ title: '', description: '', imageFile: null });
+      setIsAddModalOpen(false);
+      alert('Program berhasil ditambahkan!');
+      
+    } catch (error: any) {
+      console.error('Error adding program:', error);
+      
+      // Tampilkan error yang lebih detail
+      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+        alert('Gagal terhubung ke server. Periksa koneksi internet Anda.');
+      } else {
+        alert(`Error: ${error.message}`);
+      }
     }
   };
 
@@ -115,45 +192,21 @@ const Programs = () => {
     }
   };
 
-  const handleAddNew = () => {
-    setIsAddModalOpen(true);
-  };
-
-  const handleAddSave = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const formData = new FormData();
-      formData.append('title', newItem.title);
-      formData.append('description', newItem.description);
-      if (newItem.imageFile) {
-        formData.append('image', newItem.imageFile);
-      }
-
-      const res = await fetch(API_BASE_URL, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      });
-
-      if (!res.ok) throw new Error('Failed to add program');
-      await fetchPrograms();
-      setNewItem({ title: '', description: '', imageFile: null });
-      setIsAddModalOpen(false);
-    } catch (error) {
-      console.error('Error adding program:', error);
-    }
-  };
-
   const handleNewItemChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
+    console.log(`Input changed - ${name}:`, value);
     setNewItem((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleNewImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setNewItem((prev) => ({ ...prev, imageFile: e.target.files![0] }));
+      const file = e.target.files[0];
+      console.log('File selected:', {
+        name: file.name,
+        size: file.size,
+        type: file.type
+      });
+      setNewItem((prev) => ({ ...prev, imageFile: file }));
     }
   };
 
@@ -164,8 +217,7 @@ const Programs = () => {
   );
 
   const getIcon = (index: number) => {
-    const icons = [BookOpen, Users, Calendar];
-    return icons[index % icons.length];
+    return BookOpen;
   };
 
   return (
@@ -229,12 +281,11 @@ const Programs = () => {
                   </tr>
                 )}
                 {filteredData.map((item: any, index) => {
-                  const IconComponent = getIcon(index);
                   return (
                     <tr key={item.id} className="hover:bg-purple-50 transition">
                       <td className="py-3 px-6">{item.id}</td>
                       <td className="py-3 px-6 flex items-center space-x-2">
-                        <IconComponent size={20} className="text-purple-600" />
+                        <BookOpen size={20} className="text-purple-600" />
                         <span>{item.title}</span>
                       </td>
                       <td className="py-3 px-6">{item.description}</td>
@@ -242,25 +293,25 @@ const Programs = () => {
                         {item.imageUrl ? (
                           <img
                             src={item.imageUrl}
-                            alt={item.title}
-                            className="w-20 h-12 object-cover rounded"
+                            alt="Image"
+                            className="w-16 h-16 object-cover rounded-lg"
                           />
                         ) : (
-                          <span className="text-gray-400 italic">Tidak ada gambar</span>
+                          <span className="text-gray-400">No Image</span>
                         )}
                       </td>
-                      <td className="py-3 px-6 space-x-2">
+                      <td className="py-3 px-6">
                         <button
                           onClick={() => handleEditClick(item)}
-                          className="px-3 py-1 bg-purple-100 hover:bg-purple-200 text-purple-800 rounded"
+                          className="text-yellow-500 hover:text-yellow-700"
                         >
-                          <Edit3 size={16} />
+                          <Edit3 size={20} />
                         </button>
                         <button
                           onClick={() => handleDelete(item.id)}
-                          className="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded"
+                          className="text-red-500 hover:text-red-700 ml-3"
                         >
-                          <Trash2 size={16} />
+                          <Trash2 size={20} />
                         </button>
                       </td>
                     </tr>
@@ -272,75 +323,139 @@ const Programs = () => {
         </div>
       </div>
 
-      {/* Modal Edit */}
-      {isModalOpen && currentItem && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={handleModalClose}>
-          <div className="bg-white p-6 rounded-xl w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-xl font-bold mb-4">Edit Program</h3>
-            <input
-              name="title"
-              value={currentItem.title}
-              onChange={handleChange}
-              placeholder="Judul"
-              className="w-full mb-4 p-3 border rounded"
-            />
-            <textarea
-              name="description"
-              value={currentItem.description}
-              onChange={handleChange}
-              rows={4}
-              placeholder="Deskripsi"
-              className="w-full mb-4 p-3 border rounded"
-            />
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleEditImageChange}
-              className="w-full mb-4 p-3 border rounded"
-            />
-            <div className="flex justify-end space-x-2">
-              <button onClick={handleModalClose} className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">
+      {/* Modal untuk Add Program */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex justify-center items-center z-10">
+          <div className="bg-white p-6 rounded-xl shadow-xl max-w-lg w-full">
+            <h3 className="text-xl font-semibold text-purple-700 mb-4">Tambah Program Baru</h3>
+
+            <div className="mb-4">
+              <label htmlFor="title" className="block text-gray-700 mb-2">Judul *</label>
+              <input
+                type="text"
+                id="title"
+                name="title"
+                value={newItem.title}
+                onChange={handleNewItemChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                placeholder="Masukkan Judul"
+                required
+              />
+            </div>
+
+            <div className="mb-4">
+              <label htmlFor="description" className="block text-gray-700 mb-2">Deskripsi *</label>
+              <textarea
+                id="description"
+                name="description"
+                value={newItem.description}
+                onChange={handleNewItemChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 min-h-[100px]"
+                placeholder="Masukkan Deskripsi"
+                required
+              />
+            </div>
+
+            <div className="mb-4">
+              <label htmlFor="image" className="block text-gray-700 mb-2">
+                Pilih Gambar 
+                <span className="text-sm text-gray-500">(Opsional)</span>
+              </label>
+              <input
+                type="file"
+                id="image"
+                onChange={handleNewImageChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                accept="image/*"
+              />
+              {newItem.imageFile && (
+                <p className="text-sm text-green-600 mt-1">
+                  File terpilih: {newItem.imageFile.name}
+                </p>
+              )}
+            </div>
+
+            <div className="flex justify-end space-x-4">
+              <button
+                onClick={() => {
+                  setIsAddModalOpen(false);
+                  setNewItem({ title: '', description: '', imageFile: null });
+                }}
+                className="px-4 py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500"
+              >
                 Batal
               </button>
-              <button onClick={handleSave} className="px-4 py-2 bg-purple-700 text-white rounded hover:bg-purple-800">
+              <button
+                onClick={handleAddSave}
+                className="px-4 py-2 bg-purple-700 text-white rounded-lg hover:bg-purple-800"
+                disabled={!newItem.title || !newItem.description}
+              >
                 Simpan
               </button>
             </div>
           </div>
         </div>
       )}
+      
+      {/* Modal untuk Edit Program */}
+      {isModalOpen && currentItem && (
+        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex justify-center items-center z-10">
+          <div className="bg-white p-6 rounded-xl shadow-xl max-w-lg w-full">
+            <h3 className="text-xl font-semibold text-purple-700 mb-4">Edit Program</h3>
 
-      {/* Modal Tambah */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setIsAddModalOpen(false)}>
-          <div className="bg-white p-6 rounded-xl w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-xl font-bold mb-4">Tambah Program Baru</h3>
-            <input
-              name="title"
-              value={newItem.title}
-              onChange={handleNewItemChange}
-              placeholder="Judul"
-              className="w-full mb-4 p-3 border rounded"
-            />
-            <textarea
-              name="description"
-              value={newItem.description}
-              onChange={handleNewItemChange}
-              rows={4}
-              placeholder="Deskripsi"
-              className="w-full mb-4 p-3 border rounded"
-            />
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleNewImageChange}
-              className="w-full mb-4 p-3 border rounded"
-            />
-            <div className="flex justify-end space-x-2">
-              <button onClick={() => setIsAddModalOpen(false)} className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">
+            <div className="mb-4">
+              <label htmlFor="edit-title" className="block text-gray-700 mb-2">Judul</label>
+              <input
+                type="text"
+                id="edit-title"
+                value={currentItem.title}
+                onChange={(e) => setCurrentItem({ ...currentItem, title: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+
+            <div className="mb-4">
+              <label htmlFor="edit-description" className="block text-gray-700 mb-2">Deskripsi</label>
+              <textarea
+                id="edit-description"
+                value={currentItem.description}
+                onChange={(e) => setCurrentItem({ ...currentItem, description: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 min-h-[100px]"
+              />
+            </div>
+
+            <div className="mb-4">
+              <label htmlFor="edit-image" className="block text-gray-700 mb-2">Gambar (Opsional)</label>
+              <input
+                type="file"
+                id="edit-image"
+                onChange={(e) => setCurrentItem({ ...currentItem, imageFile: e.target.files![0] })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                accept="image/*"
+              />
+              {currentItem.imageUrl && (
+                <div className="mt-2">
+                  <p className="text-sm text-gray-600">Gambar saat ini:</p>
+                  <img 
+                    src={currentItem.imageUrl} 
+                    alt="Current" 
+                    className="w-20 h-20 object-cover rounded-lg mt-1"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end space-x-4">
+              <button
+                onClick={handleModalClose}
+                className="px-4 py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500"
+              >
                 Batal
               </button>
-              <button onClick={handleAddSave} className="px-4 py-2 bg-purple-700 text-white rounded hover:bg-purple-800">
+              <button
+                onClick={handleSave}
+                className="px-4 py-2 bg-purple-700 text-white rounded-lg hover:bg-purple-800"
+              >
                 Simpan
               </button>
             </div>
